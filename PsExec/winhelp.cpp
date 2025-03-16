@@ -1,15 +1,16 @@
 #include "winhelp.h"
 #include "runtime.h"
 
+#include <TlHelp32.h>
 
-using namespace Runtime;
 using namespace Runtime::Functions;
 
 
 void WindowsHelper::DisplayWindowsError(DWORD errorCode)
 {
 	// Return if no error
-	if (errorCode == ERROR_SUCCESS) return;
+	if (errorCode == ERROR_SUCCESS)
+		return;
 
 	// Get error message
 	LPWSTR errorMessage = nullptr;
@@ -22,7 +23,7 @@ void WindowsHelper::DisplayWindowsError(DWORD errorCode)
 	wchar_t* finalMessage = (wchar_t*)LocalAlloc(LPTR, finalMessageSize);
 	if (finalMessage != nullptr) {
 		swprintf_s(finalMessage, finalMessageSize, L"[ERROR]: WinError 0x%08x(%s)\n", errorCode, errorMessage);
-		WriteConsoleW(hStdOut, finalMessage, wcslen(finalMessage), nullptr, nullptr);
+		WriteConsoleW(Runtime::hStdOut, finalMessage, wcslen(finalMessage), nullptr, nullptr);
 		LocalFree(finalMessage);
 	}
 
@@ -144,4 +145,62 @@ const wchar_t* WindowsHelper::GetProcessIntegrityLevel(HANDLE hToken)
 	default:
 		return L"Unknown";
 	}
+}
+
+DWORD WindowsHelper::GetProcessId(LPWSTR lpProcessName)
+{
+	DWORD dwProcId{ 0 };
+	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (hSnapshot == INVALID_HANDLE_VALUE) {
+		DisplayWindowsError(GetLastError());
+		return 0;
+	}
+
+	PROCESSENTRY32W pe32;
+	pe32.dwSize = sizeof(pe32);
+	if (Process32FirstW(hSnapshot, &pe32)) {
+		do {
+			if (!wcscmp(pe32.szExeFile, lpProcessName)) {
+				dwProcId = pe32.th32ProcessID;
+				break;
+			}
+		} while (Process32NextW(hSnapshot, &pe32));
+	}
+	else {
+		DisplayWindowsError(GetLastError());
+		return 0;
+	}
+	
+	CloseHandle(hSnapshot);
+	return dwProcId;
+}
+
+BOOL WindowsHelper::EnableDebugPrivilege()
+{
+	HANDLE hToken;
+	if (OpenProcessToken(NtCurrentProcess, TOKEN_ADJUST_PRIVILEGES, &hToken)) {
+		return SetPrivilege(hToken, SE_DEBUG_NAME, TRUE);
+	}
+
+	return FALSE;
+}
+
+BOOL WindowsHelper::SetPrivilege(HANDLE hToken, LPCTSTR lpszPrivilege, BOOL bEnablePrivilege)
+{
+	BOOL result{ FALSE };
+	LUID luid;
+	
+	if (LookupPrivilegeValueW(nullptr, lpszPrivilege, &luid))
+	{
+		TOKEN_PRIVILEGES tp;
+		tp.PrivilegeCount = 1;
+		tp.Privileges[0].Luid = luid;
+		tp.Privileges[0].Attributes = (bEnablePrivilege) ? SE_PRIVILEGE_ENABLED : 0;
+		if (AdjustTokenPrivileges(hToken, FALSE, &tp, NULL, (PTOKEN_PRIVILEGES)NULL, (PDWORD)NULL))
+		{
+			result = (GetLastError() == ERROR_SUCCESS);
+		}
+	}
+
+	return result;
 }
