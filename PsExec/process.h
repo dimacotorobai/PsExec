@@ -1,9 +1,7 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-#include <winternl.h>
+#include "ntdll.h"
 
 namespace Process {
 	typedef struct _Information {
@@ -32,6 +30,7 @@ namespace Process {
 	
 	BOOL Create(LPWSTR lpCommandLine, LP_INFORMATION lpInfo);
 	BOOL CreateWithLogon(LPCWSTR lpcUsername, LPCWSTR lpcDomain, LPCWSTR lpcPassword, LPWSTR lpCommandLine, LP_INFORMATION lpInfo);
+	BOOL CreateWithToken(DWORD dwProcessId, LPWSTR lpCommandLine, LP_INFORMATION lpInfo);
 	void DisplayStartInformation(LPWSTR lpCommandLine);
 	void DisplaySummaryInformation(LP_INFORMATION lpInfo);
 
