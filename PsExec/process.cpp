@@ -3,7 +3,6 @@
 #include "winhelp.h"
 
 
-using namespace Runtime;
 using namespace Runtime::Functions;
 
 
@@ -47,6 +46,52 @@ BOOL Process::CreateWithLogon(LPCWSTR lpcUsername, LPCWSTR lpcDomain, LPCWSTR lp
 	return TRUE;
 }
 
+BOOL Process::CreateWithToken(DWORD dwProcessId, LPWSTR lpCommandLine, LP_INFORMATION lpInfo)
+{	
+	// Get Process Handle
+	HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, dwProcessId);
+	if (!hProcess) {
+		WriteConsoleW(Runtime::hStdOut, L"Test1\n", wcslen(L"Test1\n"), nullptr, nullptr);
+		WindowsHelper::DisplayWindowsError(GetLastError());
+		return FALSE;
+	}
+
+	// Get Process Token 
+	HANDLE hToken;
+	if (!OpenProcessToken(hProcess, MAXIMUM_ALLOWED, &hToken)) {
+		WriteConsoleW(Runtime::hStdOut, L"Test2\n", wcslen(L"Test1\n"), nullptr, nullptr);
+		WindowsHelper::DisplayWindowsError(GetLastError());
+		return FALSE;
+	}
+
+	// Duplicate token
+	HANDLE hDupToken;
+	if(!DuplicateTokenEx(hToken, MAXIMUM_ALLOWED, nullptr, SecurityIdentification, TokenPrimary, &hDupToken)) {
+		WriteConsoleW(Runtime::hStdOut, L"Test3\n", wcslen(L"Test1\n"), nullptr, nullptr);
+		WindowsHelper::DisplayWindowsError(GetLastError());
+		return FALSE;
+	}
+
+	// Create Process
+	::PROCESS_INFORMATION pi{ 0 };
+	::STARTUPINFO si{ sizeof(si) };
+	if (CreateProcessWithTokenW(hDupToken, 0, nullptr, lpCommandLine, 0, nullptr, nullptr, &si, &pi)) {
+		lpInfo->bCreated = true;
+		_GetProcessInformation(pi.hProcess, lpInfo);
+		WaitForSingleObject(pi.hProcess, INFINITE);
+		_GetProcessExitCode(pi.hProcess, lpInfo);
+		CloseHandle(pi.hThread);
+		CloseHandle(pi.hProcess);
+	}
+	else {
+		WriteConsoleW(Runtime::hStdOut, L"Test4\n", wcslen(L"Test1\n"), nullptr, nullptr);
+		WindowsHelper::DisplayWindowsError(GetLastError());
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 void Process::DisplayStartInformation(LPWSTR lpCommandLine)
 {
 	// Allocate print buffer
@@ -55,19 +100,19 @@ void Process::DisplayStartInformation(LPWSTR lpCommandLine)
 
 	memset(buffer, 0, sizeof(buffer));
 	swprintf_s(buffer, BUFFER_SIZE, L"================================================================\n");
-	WriteConsoleW(hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
+	WriteConsoleW(Runtime::hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
 
 	memset(buffer, 0, sizeof(buffer));
 	swprintf_s(buffer, BUFFER_SIZE, L"PsExec Start:\n");
-	WriteConsoleW(hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
+	WriteConsoleW(Runtime::hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
 
 	memset(buffer, 0, sizeof(buffer));
 	swprintf_s(buffer, BUFFER_SIZE, L"    Command Line: %s\n", lpCommandLine);
-	WriteConsoleW(hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
+	WriteConsoleW(Runtime::hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
 
 	memset(buffer, 0, sizeof(buffer));
 	swprintf_s(buffer, BUFFER_SIZE, L"================================================================\n");
-	WriteConsoleW(hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
+	WriteConsoleW(Runtime::hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
 }
 
 void Process::DisplaySummaryInformation(LP_INFORMATION lpInfo)
@@ -78,43 +123,43 @@ void Process::DisplaySummaryInformation(LP_INFORMATION lpInfo)
 
 	memset(buffer, 0, sizeof(buffer));
 	swprintf_s(buffer, BUFFER_SIZE, L"================================================================\n");
-	WriteConsoleW(hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
+	WriteConsoleW(Runtime::hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
 
 	memset(buffer, 0, sizeof(buffer));
 	swprintf_s(buffer, BUFFER_SIZE, L"PsExec Summary:\n");
-	WriteConsoleW(hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
+	WriteConsoleW(Runtime::hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
 
 	memset(buffer, 0, sizeof(buffer));
 	swprintf_s(buffer, BUFFER_SIZE, L"	Process ID: 0x%08X\n", lpInfo->dwPID);
-	WriteConsoleW(hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
+	WriteConsoleW(Runtime::hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
 
 	memset(buffer, 0, sizeof(buffer));
 	swprintf_s(buffer, BUFFER_SIZE, L"	User: %s\\%s\n", lpInfo->szDomain, lpInfo->szName);
-	WriteConsoleW(hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
+	WriteConsoleW(Runtime::hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
 
 	memset(buffer, 0, sizeof(buffer));
 	swprintf_s(buffer, BUFFER_SIZE, L"	Elevated: %s\n", lpInfo->lpElevated);
-	WriteConsoleW(hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
+	WriteConsoleW(Runtime::hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
 
 	memset(buffer, 0, sizeof(buffer));
 	swprintf_s(buffer, BUFFER_SIZE, L"	Elevation Type: %s\n", lpInfo->lpElevationType);
-	WriteConsoleW(hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
+	WriteConsoleW(Runtime::hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
 
 	memset(buffer, 0, sizeof(buffer));
 	swprintf_s(buffer, BUFFER_SIZE, L"	Integrity Level: %s\n", lpInfo->lpIntergrityLevel);
-	WriteConsoleW(hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
+	WriteConsoleW(Runtime::hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
 
 	memset(buffer, 0, sizeof(buffer));
 	swprintf_s(buffer, BUFFER_SIZE, L"	Image Path: %s\n", lpInfo->szImagePath);
-	WriteConsoleW(hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
+	WriteConsoleW(Runtime::hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
 
 	memset(buffer, 0, sizeof(buffer));
 	swprintf_s(buffer, BUFFER_SIZE, L"	Return Code: 0x%08X\n", lpInfo->dwExitCode);
-	WriteConsoleW(hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
+	WriteConsoleW(Runtime::hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
 
 	memset(buffer, 0, sizeof(buffer));
 	swprintf_s(buffer, BUFFER_SIZE, L"================================================================\n");
-	WriteConsoleW(hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
+	WriteConsoleW(Runtime::hStdOut, buffer, wcslen(buffer), nullptr, nullptr);
 }
 
 BOOL Process::_GetProcessInformation(HANDLE hProcess, LP_INFORMATION lpInfo)

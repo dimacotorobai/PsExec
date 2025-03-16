@@ -134,7 +134,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
-      <AdditionalDependencies>ntdll.lib;kernel32.lib;advapi32.lib;shell32.lib;user32.lib</AdditionalDependencies>
+      <AdditionalDependencies>ntdll.lib;kernel32.lib;advapi32.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -145,6 +145,7 @@
     <ClCompile Include="winhelp.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ntdll.h" />
     <ClInclude Include="process.h" />
     <ClInclude Include="winhelp.h" />
   </ItemGroup>
