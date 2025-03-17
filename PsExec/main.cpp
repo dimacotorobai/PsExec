@@ -10,8 +10,8 @@ const wchar_t* usageMessage = L"\
 Usage:\n\
 	PsExec.exe <application>\n\
 	PsExec.exe -u <username> -p <password> <application>\n\
-	PsExec.exe -tp <TARGET_PID> <application>\n\
-	PsExec.exe -tn <TARGET_NAME> <application>\n\
+	PsExec.exe -tp <target_pid> <application>\n\
+	PsExec.exe -tn <target_name> <application>\n\
 ";
 
 int main(int argc, wchar_t* argv[]) {
