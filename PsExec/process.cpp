@@ -51,7 +51,6 @@ BOOL Process::CreateWithToken(DWORD dwProcessId, LPWSTR lpCommandLine, LP_INFORM
 	// Get Process Handle
 	HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, dwProcessId);
 	if (!hProcess) {
-		WriteConsoleW(Runtime::hStdOut, L"Test1\n", wcslen(L"Test1\n"), nullptr, nullptr);
 		WindowsHelper::DisplayWindowsError(GetLastError());
 		return FALSE;
 	}
@@ -59,7 +58,6 @@ BOOL Process::CreateWithToken(DWORD dwProcessId, LPWSTR lpCommandLine, LP_INFORM
 	// Get Process Token 
 	HANDLE hToken;
 	if (!OpenProcessToken(hProcess, MAXIMUM_ALLOWED, &hToken)) {
-		WriteConsoleW(Runtime::hStdOut, L"Test2\n", wcslen(L"Test1\n"), nullptr, nullptr);
 		WindowsHelper::DisplayWindowsError(GetLastError());
 		return FALSE;
 	}
@@ -67,7 +65,6 @@ BOOL Process::CreateWithToken(DWORD dwProcessId, LPWSTR lpCommandLine, LP_INFORM
 	// Duplicate token
 	HANDLE hDupToken;
 	if(!DuplicateTokenEx(hToken, MAXIMUM_ALLOWED, nullptr, SecurityIdentification, TokenPrimary, &hDupToken)) {
-		WriteConsoleW(Runtime::hStdOut, L"Test3\n", wcslen(L"Test1\n"), nullptr, nullptr);
 		WindowsHelper::DisplayWindowsError(GetLastError());
 		return FALSE;
 	}
@@ -84,7 +81,6 @@ BOOL Process::CreateWithToken(DWORD dwProcessId, LPWSTR lpCommandLine, LP_INFORM
 		CloseHandle(pi.hProcess);
 	}
 	else {
-		WriteConsoleW(Runtime::hStdOut, L"Test4\n", wcslen(L"Test1\n"), nullptr, nullptr);
 		WindowsHelper::DisplayWindowsError(GetLastError());
 		return FALSE;
 	}

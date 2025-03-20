@@ -34,17 +34,17 @@ namespace Runtime {
 				if (numLength > 2 && (lpNumber[0] == '0' && (lpNumber[1] == 'x' || lpNumber[1] == 'X'))) {
 					int temp = 0;
 					for (int i = 2; i < numLength; i++) {
-						if (lpNumber[i] == 'A')
+						if (lpNumber[i] == 'A' || lpNumber[i] == 'a')
 							temp = 10;
-						else if (lpNumber[i] == 'B')
+						else if (lpNumber[i] == 'B' || lpNumber[i] == 'b')
 							temp = 11;
-						else if (lpNumber[i] == 'C')
+						else if (lpNumber[i] == 'C' || lpNumber[i] == 'c')
 							temp = 12;
-						else if (lpNumber[i] == 'D')
+						else if (lpNumber[i] == 'D' || lpNumber[i] == 'd')
 							temp = 13;
-						else if (lpNumber[i] == 'E')
+						else if (lpNumber[i] == 'E' || lpNumber[i] == 'e')
 							temp = 14;
-						else if (lpNumber[i] == 'F')
+						else if (lpNumber[i] == 'F' || lpNumber[i] == 'f')
 							temp = 15;
 						else
 							temp = lpNumber[i] - '0';
