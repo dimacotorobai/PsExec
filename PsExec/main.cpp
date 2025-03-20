@@ -20,6 +20,7 @@ int main(int argc, wchar_t* argv[]) {
 		return -1;
 	}
 
+	WindowsHelper::EnableDebugPrivilege();
 	wchar_t *lpCommandline, *lpUsername, *lpPassword, *lpProcessId, *lpProcessName;
 	lpUsername = lpPassword = lpCommandline = lpProcessId = lpProcessName = nullptr;
 	
@@ -41,7 +42,6 @@ int main(int argc, wchar_t* argv[]) {
 
 	Process::INFORMATION info{ 0 };
 	Process::DisplayStartInformation(lpCommandline);
-	WindowsHelper::EnableDebugPrivilege();
 	if (lpUsername && lpPassword) {
 		Process::CreateWithLogon(lpUsername, nullptr, lpPassword, lpCommandline, &info);
 	}
