@@ -3,6 +3,7 @@
 
 #include <TlHelp32.h>
 
+using namespace Runtime;
 using namespace Runtime::Functions;
 
 
@@ -16,14 +17,14 @@ void WindowsHelper::DisplayWindowsError(DWORD errorCode)
 	LPWSTR errorMessage = nullptr;
 	size_t size = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
 		NULL, errorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPWSTR)&errorMessage, 0, NULL);
-	memset(errorMessage + wcslen(errorMessage) - 2, 0, 2);
+	SetMemory(errorMessage + WcStringLength(errorMessage) - 2, 0, 2);
 
 	// Get full message
 	size_t finalMessageSize = 2 * (size + 64);
 	wchar_t* finalMessage = (wchar_t*)LocalAlloc(LPTR, finalMessageSize);
 	if (finalMessage != nullptr) {
 		swprintf_s(finalMessage, finalMessageSize, L"[ERROR]: WinError 0x%08x(%s)\n", errorCode, errorMessage);
-		WriteConsoleW(Runtime::hStdOut, finalMessage, wcslen(finalMessage), nullptr, nullptr);
+		WriteConsoleW(Runtime::hStdOut, finalMessage, WcStringLength(finalMessage), nullptr, nullptr);
 		LocalFree(finalMessage);
 	}
 
@@ -160,7 +161,7 @@ DWORD WindowsHelper::GetProcessId(LPWSTR lpProcessName)
 	pe32.dwSize = sizeof(pe32);
 	if (Process32FirstW(hSnapshot, &pe32)) {
 		do {
-			if (!wcscmp(pe32.szExeFile, lpProcessName)) {
+			if (!WcStringCompare(pe32.szExeFile, lpProcessName)) {
 				dwProcId = pe32.th32ProcessID;
 				break;
 			}
@@ -170,7 +171,7 @@ DWORD WindowsHelper::GetProcessId(LPWSTR lpProcessName)
 		DisplayWindowsError(GetLastError());
 		return 0;
 	}
-	
+
 	CloseHandle(hSnapshot);
 	return dwProcId;
 }
@@ -189,7 +190,7 @@ BOOL WindowsHelper::SetPrivilege(HANDLE hToken, LPCTSTR lpszPrivilege, BOOL bEna
 {
 	BOOL result{ FALSE };
 	LUID luid;
-	
+
 	if (LookupPrivilegeValueW(nullptr, lpszPrivilege, &luid))
 	{
 		TOKEN_PRIVILEGES tp;

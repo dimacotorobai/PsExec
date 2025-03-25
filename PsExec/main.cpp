@@ -5,6 +5,9 @@
 #include "winhelp.h"
 #include "process.h"
 
+using namespace Runtime;
+using namespace Runtime::Functions;
+
 
 const wchar_t* usageMessage = L"\
 Usage:\n\
@@ -14,27 +17,28 @@ Usage:\n\
 	PsExec.exe -tn <target_name> <application>\n\
 ";
 
-int main(int argc, wchar_t* argv[]) {
+
+int main(int argc, wchar_t* argv[]) {	
 	if (argc < 2) {
-		WriteConsoleW(Runtime::hStdOut, usageMessage, wcslen(usageMessage), nullptr, nullptr);
+		WriteConsoleW(Runtime::hStdOut, usageMessage, WcStringLength(usageMessage), nullptr, nullptr);
 		return -1;
 	}
 
 	WindowsHelper::EnableDebugPrivilege();
 	wchar_t *lpCommandline, *lpUsername, *lpPassword, *lpProcessId, *lpProcessName;
 	lpUsername = lpPassword = lpCommandline = lpProcessId = lpProcessName = nullptr;
-	
+
 	for(int i = 0; i < argc; i++) {
-		if (!wcscmp(L"-u", argv[i])) {
+		if (!WcStringCompare(L"-u", argv[i])) {
 			lpUsername = argv[i+1];
 		}
-		else if (!wcscmp(L"-p", argv[i])) {
+		else if (!WcStringCompare(L"-p", argv[i])) {
 			lpPassword = argv[i + 1];
 		}
-		else if (!wcscmp(L"-tp", argv[i])) {
+		else if (!WcStringCompare(L"-tp", argv[i])) {
 			lpProcessId = argv[i + 1];
 		}
-		else if (!wcscmp(L"-tn", argv[i])) {
+		else if (!WcStringCompare(L"-tn", argv[i])) {
 			lpProcessName = argv[i + 1];
 		}
 	}
@@ -46,7 +50,7 @@ int main(int argc, wchar_t* argv[]) {
 		Process::CreateWithLogon(lpUsername, nullptr, lpPassword, lpCommandline, &info);
 	}
 	else if (lpProcessId || lpProcessName) {
-		DWORD dwProcessId = lpProcessId? Runtime::Functions::wtoi(lpProcessId): WindowsHelper::GetProcessId(lpProcessName);
+		DWORD dwProcessId = lpProcessId? WcStringToInt(lpProcessId): WindowsHelper::GetProcessId(lpProcessName);
 		Process::CreateWithToken(dwProcessId, lpCommandline, &info);
 	}
 	else {
@@ -57,14 +61,16 @@ int main(int argc, wchar_t* argv[]) {
 	return info.dwExitCode;
 }
 
+
 int mainCRTStartup(PPEB peb) {
 	int exitCode{ -1 };
+
 	if (Runtime::Init(peb)) {
 		int argc{ 0 };
 		wchar_t** argv = Runtime::Functions::ConvertCommandLineToArgV(Runtime::Functions::GetCommandLineArgs(), &argc);
 		exitCode = main(argc, argv);
 		Runtime::Destroy();
 	}
-	
+
 	ExitProcess(exitCode);
 }

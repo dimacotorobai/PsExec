@@ -22,7 +22,11 @@ namespace Runtime {
 		extern PFN_SPRINTF_S sprintf_s;
 		extern PFN_SWPRINTF_S swprintf_s;
 
-		int wtoi(const wchar_t* lpNumber);
+
+		int WcStringLength(const wchar_t* str);
+		int WcStringCompare(const wchar_t* str1, const wchar_t* str2);
+		int WcStringToInt(const wchar_t* str);
+		void* SetMemory(void* dest, int c, size_t count);
 
 		LPWSTR GetCommandLineArgs();
 		LPWSTR* ConvertCommandLineToArgV(LPWSTR pCommandLine, int* pNumArgs);

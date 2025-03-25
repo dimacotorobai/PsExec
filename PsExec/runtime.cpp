@@ -19,10 +19,10 @@ namespace Runtime {
 	LPWSTR pCommandLine = nullptr;
 	LPWSTR* pArgV = nullptr;
 	INT iArgC = 0;
-	
+
 	namespace Functions {
-		PFN_SPRINTF_S sprintf_s		= nullptr;
-		PFN_SWPRINTF_S	swprintf_s	= nullptr;
+		PFN_SPRINTF_S	sprintf_s = nullptr;
+		PFN_SWPRINTF_S	swprintf_s = nullptr;
 	}
 }
 
@@ -31,7 +31,7 @@ namespace Runtime {
 * Function Implementations
 *********************************/
 bool Runtime::Init(PPEB peb) {
-	pPEB = peb;	
+	pPEB = peb;
 	return InitConsole(peb) && InitNtdllServices();
 }
 
@@ -40,9 +40,9 @@ bool Runtime::InitConsole(PPEB peb) {
 	hStdOut = peb->ProcessParameters->StandardOutput;
 	hStdError = peb->ProcessParameters->StandardError;
 
-	return hStdIn != INVALID_HANDLE_VALUE &&
-		hStdOut != INVALID_HANDLE_VALUE &&
-		hStdError != INVALID_HANDLE_VALUE;
+	return hStdIn != INVALID_HANDLE_VALUE
+		&& hStdOut != INVALID_HANDLE_VALUE
+		&& hStdError != INVALID_HANDLE_VALUE;
 }
 
 bool Runtime::InitNtdllServices() {
@@ -52,7 +52,8 @@ bool Runtime::InitNtdllServices() {
 		Functions::swprintf_s = reinterpret_cast<PFN_SWPRINTF_S>(GetProcAddress(hModule, "swprintf_s"));
 	}
 
-	return Functions::sprintf_s != nullptr && Functions::swprintf_s != nullptr;
+	return Functions::sprintf_s != nullptr
+		&& Functions::swprintf_s != nullptr;
 }
 
 void Runtime::Destroy()
@@ -65,7 +66,7 @@ void Runtime::Destroy()
 			iArgC = 0;
 		}
 	}
-	
+
 	if (pCommandLine) {
 		SIZE_T regionSize{ 0 };
 		auto status = NtFreeVirtualMemory(NtCurrentProcess, reinterpret_cast<PVOID*>(&pCommandLine), &regionSize, MEM_RELEASE);
@@ -74,44 +75,64 @@ void Runtime::Destroy()
 	}
 }
 
+int Runtime::Functions::WcStringLength(const wchar_t* str)
+{
+	int length = 0;
+	while (str && str[length])
+		length++;
 
-int Runtime::Functions::wtoi(const wchar_t* lpNumber)
+	return length;
+}
+
+int Runtime::Functions::WcStringCompare(const wchar_t* str1, const wchar_t* str2)
+{
+	wchar_t c1, c2;
+	do {
+		c1 = *str1++;
+		c2 = *str2++;
+		if (c2 == '\0')
+			return c1 - c2;
+
+	} while (c1 == c2);
+
+	return c1 < c2 ? -1 : 1;
+}
+
+int Runtime::Functions::WcStringToInt(const wchar_t* str)
 {
 	int result = 0;
-	if (lpNumber) {
-		int numLength = wcslen(lpNumber);
-
-		// Hexadecimal
-		if (numLength > 2 && (lpNumber[0] == '0' && (lpNumber[1] == 'x' || lpNumber[1] == 'X'))) {
+	if (str) {
+		int numLength = WcStringLength(str);
+		if (numLength > 2 && (str[0] == '0' && (str[1] == 'x' || str[1] == 'X'))) {
 			int temp = 0;
 			for (int i = 2; i < numLength; i++) {
-				if (lpNumber[i] == 'A' || lpNumber[i] == 'a')
-					temp = 10;
-				else if (lpNumber[i] == 'B' || lpNumber[i] == 'b')
-					temp = 11;
-				else if (lpNumber[i] == 'C' || lpNumber[i] == 'c')
-					temp = 12;
-				else if (lpNumber[i] == 'D' || lpNumber[i] == 'd')
-					temp = 13;
-				else if (lpNumber[i] == 'E' || lpNumber[i] == 'e')
-					temp = 14;
-				else if (lpNumber[i] == 'F' || lpNumber[i] == 'f')
-					temp = 15;
+				if (str[i] >= 'A' && str[i] <= 'F')
+					temp = str[i] - 'A';
+				else if (str[i] >= 'a' && str[i] <= 'f')
+					temp = str[i] - 'a';
 				else
-					temp = lpNumber[i] - '0';
+					temp = str[i] - '0';
 
 				result = result * 16 + temp;
 			}
 		}
-		// Decimal implementation
 		else {
 			for (int i = 0; i < numLength; i++) {
-				result = result * 10 + (lpNumber[i] - '0');
+				result = result * 10 + (str[i] - '0');
 			}
 		}
 	}
 
 	return result;
+}
+
+void* Runtime::Functions::SetMemory(void* dest, int val, size_t len)
+{
+	unsigned char* ptr = reinterpret_cast<unsigned char*>(dest);
+	while (len-- > 0)
+		*ptr++ = val;
+
+	return nullptr;
 }
 
 LPWSTR Runtime::Functions::GetCommandLineArgs()
@@ -132,25 +153,32 @@ LPWSTR* Runtime::Functions::ConvertCommandLineToArgV(LPWSTR pCommandLine, int* p
 	if (!pArgV && pCommandLine && pNumArgs) {
 		SIZE_T bufferSize{ 1 << 12 };
 		if (NT_SUCCESS(NtAllocateVirtualMemory(NtCurrentProcess, reinterpret_cast<PVOID*>(&pArgV), 0, &bufferSize, MEM_COMMIT, PAGE_READWRITE))) {
-			iArgC = 0;
 			bool bInQuotes{ false };
-			int commandLineLength = wcslen(pCommandLine);
+			int commandLineLength = WcStringLength(pCommandLine);
+			iArgC = 0;
+
 			for (int i = 0; i < commandLineLength; i++) {
 				if (pCommandLine[i] == '\"') {
-					if (!bInQuotes) {
-						pArgV[iArgC++] = &pCommandLine[i + 1];
-					}
+					if (!bInQuotes)
+						pArgV[iArgC++] = &pCommandLine[i];
 
-					pCommandLine[i] = '\0';
 					bInQuotes = !bInQuotes;
 					continue;
 				}
 
-				if (pCommandLine[i] == ' ' && !bInQuotes && pCommandLine[i + 1] != '\0') {
-					pArgV[iArgC++] = &pCommandLine[i + 1];
+				if (!bInQuotes && pCommandLine[i] == ' ' && pCommandLine[i + 1] != '\0') {
+					if (pCommandLine[i + 1] != ' ')
+						pArgV[iArgC++] = &pCommandLine[i + 1];
+
 					pCommandLine[i] = '\0';
+					continue;
+				}
+
+				if (i == 0) {
+					pArgV[iArgC++] = pCommandLine;
 				}
 			}
+
 			*pNumArgs = iArgC;
 		}
 	}
