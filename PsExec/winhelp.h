@@ -3,11 +3,11 @@
 
 #include "ntdll.h"
 
-namespace WindowsHelper 
+namespace WindowsHelper
 {
 	// Windows error related stuff
-	void DisplayWindowsError(DWORD errorCode);
-	
+	LPWSTR GetWindowsErrorMessage(DWORD errorCode);
+
 	// Process token get information stuff
 	BOOL GetProcessNameAndDomain(HANDLE hToken, wchar_t* lpName, LPDWORD nameSize, wchar_t* lpDomain, LPDWORD domainSize);
 	const wchar_t* GetProcessElevation(HANDLE hToken);

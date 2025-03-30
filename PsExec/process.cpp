@@ -1,6 +1,7 @@
 #include "process.h"
 #include "runtime.h"
 #include "winhelp.h"
+#include "logger.h"
 
 using namespace Runtime;
 using namespace Runtime::Functions;
@@ -19,7 +20,10 @@ BOOL Process::Create(LPWSTR lpCommandLine, LP_INFORMATION lpInfo)
 		CloseHandle(pi.hProcess);
 	}
 	else {
-		WindowsHelper::DisplayWindowsError(GetLastError());
+		auto errorCode = GetLastError();
+		auto errorMessage = WindowsHelper::GetWindowsErrorMessage(errorCode);
+		LOG_ERROR(L"%s (0x%08x)\n", errorMessage, errorCode);
+		LocalFree(errorMessage);
 		return FALSE;
 	}
 
@@ -39,7 +43,10 @@ BOOL Process::CreateWithLogon(LPCWSTR lpcUsername, LPCWSTR lpcDomain, LPCWSTR lp
 		CloseHandle(pi.hProcess);
 	}
 	else {
-		WindowsHelper::DisplayWindowsError(GetLastError());
+		auto errorCode = GetLastError();
+		auto errorMessage = WindowsHelper::GetWindowsErrorMessage(errorCode);
+		LOG_ERROR(L"%s (0x%08x)\n", errorMessage, errorCode);
+		LocalFree(errorMessage);
 		return FALSE;
 	}
 
@@ -51,21 +58,30 @@ BOOL Process::CreateWithToken(DWORD dwProcessId, LPWSTR lpCommandLine, LP_INFORM
 	// Get Process Handle
 	HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, dwProcessId);
 	if (!hProcess) {
-		WindowsHelper::DisplayWindowsError(GetLastError());
+		auto errorCode = GetLastError();
+		auto errorMessage = WindowsHelper::GetWindowsErrorMessage(errorCode);
+		LOG_ERROR(L"%s (0x%08x)\n", errorMessage, errorCode);
+		LocalFree(errorMessage);
 		return FALSE;
 	}
 
 	// Get Process Token
 	HANDLE hToken;
 	if (!OpenProcessToken(hProcess, MAXIMUM_ALLOWED, &hToken)) {
-		WindowsHelper::DisplayWindowsError(GetLastError());
+		auto errorCode = GetLastError();
+		auto errorMessage = WindowsHelper::GetWindowsErrorMessage(errorCode);
+		LOG_ERROR(L"%s (0x%08x)\n", errorMessage, errorCode);
+		LocalFree(errorMessage);
 		return FALSE;
 	}
 
 	// Duplicate token
 	HANDLE hDupToken;
-	if(!DuplicateTokenEx(hToken, MAXIMUM_ALLOWED, nullptr, SecurityIdentification, TokenPrimary, &hDupToken)) {
-		WindowsHelper::DisplayWindowsError(GetLastError());
+	if (!DuplicateTokenEx(hToken, MAXIMUM_ALLOWED, nullptr, SecurityIdentification, TokenPrimary, &hDupToken)) {
+		auto errorCode = GetLastError();
+		auto errorMessage = WindowsHelper::GetWindowsErrorMessage(errorCode);
+		LOG_ERROR(L"%s (0x%08x)\n", errorMessage, errorCode);
+		LocalFree(errorMessage);
 		return FALSE;
 	}
 
@@ -81,7 +97,10 @@ BOOL Process::CreateWithToken(DWORD dwProcessId, LPWSTR lpCommandLine, LP_INFORM
 		CloseHandle(pi.hProcess);
 	}
 	else {
-		WindowsHelper::DisplayWindowsError(GetLastError());
+		auto errorCode = GetLastError();
+		auto errorMessage = WindowsHelper::GetWindowsErrorMessage(errorCode);
+		LOG_ERROR(L"%s (0x%08x)\n", errorMessage, errorCode);
+		LocalFree(errorMessage);
 		return FALSE;
 	}
 
@@ -90,72 +109,24 @@ BOOL Process::CreateWithToken(DWORD dwProcessId, LPWSTR lpCommandLine, LP_INFORM
 
 void Process::DisplayStartInformation(LPWSTR lpCommandLine)
 {
-	// Allocate print buffer
-	constexpr size_t BUFFER_SIZE{ 512 };
-	wchar_t buffer[BUFFER_SIZE]{ 0 };
-
-	SetMemory(buffer, 0, sizeof(buffer));
-	swprintf_s(buffer, BUFFER_SIZE, L"================================================================\n");
-	WriteConsoleW(Runtime::hStdOut, buffer, WcStringLength(buffer), nullptr, nullptr);
-
-	SetMemory(buffer, 0, sizeof(buffer));
-	swprintf_s(buffer, BUFFER_SIZE, L"PsExec Start:\n");
-	WriteConsoleW(Runtime::hStdOut, buffer, WcStringLength(buffer), nullptr, nullptr);
-
-	SetMemory(buffer, 0, sizeof(buffer));
-	swprintf_s(buffer, BUFFER_SIZE, L"    Command Line: %s\n", lpCommandLine);
-	WriteConsoleW(Runtime::hStdOut, buffer, WcStringLength(buffer), nullptr, nullptr);
-
-	SetMemory(buffer, 0, sizeof(buffer));
-	swprintf_s(buffer, BUFFER_SIZE, L"================================================================\n");
-	WriteConsoleW(Runtime::hStdOut, buffer, WcStringLength(buffer), nullptr, nullptr);
+	Logger::Print(L"================================================================\n");
+	Logger::Print(L"PsExec Start:\n");
+	Logger::Print(L"    Command Line: %s\n", lpCommandLine);
+	Logger::Print(L"================================================================\n");
 }
 
 void Process::DisplaySummaryInformation(LP_INFORMATION lpInfo)
 {
-	// Allocate print buffer
-	constexpr size_t BUFFER_SIZE{ 512 };
-	wchar_t buffer[BUFFER_SIZE]{ 0 };
-
-	SetMemory(buffer, 0, sizeof(buffer));
-	swprintf_s(buffer, BUFFER_SIZE, L"================================================================\n");
-	WriteConsoleW(Runtime::hStdOut, buffer, WcStringLength(buffer), nullptr, nullptr);
-
-	SetMemory(buffer, 0, sizeof(buffer));
-	swprintf_s(buffer, BUFFER_SIZE, L"PsExec Summary:\n");
-	WriteConsoleW(Runtime::hStdOut, buffer, WcStringLength(buffer), nullptr, nullptr);
-
-	SetMemory(buffer, 0, sizeof(buffer));
-	swprintf_s(buffer, BUFFER_SIZE, L"	Process ID: 0x%08X\n", lpInfo->dwPID);
-	WriteConsoleW(Runtime::hStdOut, buffer, WcStringLength(buffer), nullptr, nullptr);
-
-	SetMemory(buffer, 0, sizeof(buffer));
-	swprintf_s(buffer, BUFFER_SIZE, L"	User: %s\\%s\n", lpInfo->szDomain, lpInfo->szName);
-	WriteConsoleW(Runtime::hStdOut, buffer, WcStringLength(buffer), nullptr, nullptr);
-
-	SetMemory(buffer, 0, sizeof(buffer));
-	swprintf_s(buffer, BUFFER_SIZE, L"	Elevated: %s\n", lpInfo->lpElevated);
-	WriteConsoleW(Runtime::hStdOut, buffer, WcStringLength(buffer), nullptr, nullptr);
-
-	SetMemory(buffer, 0, sizeof(buffer));
-	swprintf_s(buffer, BUFFER_SIZE, L"	Elevation Type: %s\n", lpInfo->lpElevationType);
-	WriteConsoleW(Runtime::hStdOut, buffer, WcStringLength(buffer), nullptr, nullptr);
-
-	SetMemory(buffer, 0, sizeof(buffer));
-	swprintf_s(buffer, BUFFER_SIZE, L"	Integrity Level: %s\n", lpInfo->lpIntergrityLevel);
-	WriteConsoleW(Runtime::hStdOut, buffer, WcStringLength(buffer), nullptr, nullptr);
-
-	SetMemory(buffer, 0, sizeof(buffer));
-	swprintf_s(buffer, BUFFER_SIZE, L"	Image Path: %s\n", lpInfo->szImagePath);
-	WriteConsoleW(Runtime::hStdOut, buffer, WcStringLength(buffer), nullptr, nullptr);
-
-	SetMemory(buffer, 0, sizeof(buffer));
-	swprintf_s(buffer, BUFFER_SIZE, L"	Return Code: 0x%08X\n", lpInfo->dwExitCode);
-	WriteConsoleW(Runtime::hStdOut, buffer, WcStringLength(buffer), nullptr, nullptr);
-
-	SetMemory(buffer, 0, sizeof(buffer));
-	swprintf_s(buffer, BUFFER_SIZE, L"================================================================\n");
-	WriteConsoleW(Runtime::hStdOut, buffer, WcStringLength(buffer), nullptr, nullptr);
+	Logger::Print(L"================================================================\n");
+	Logger::Print(L"PsExec Summary:\n");
+	Logger::Print(L"	Process ID: 0x%08X\n", lpInfo->dwPID);
+	Logger::Print(L"	User: %s\\%s\n", lpInfo->szDomain, lpInfo->szName);
+	Logger::Print(L"	Elevated: %s\n", lpInfo->lpElevated);
+	Logger::Print(L"	Elevation Type: %s\n", lpInfo->lpElevationType);
+	Logger::Print(L"	Integrity Level: %s\n", lpInfo->lpIntergrityLevel);
+	Logger::Print(L"	Image Path: %s\n", lpInfo->szImagePath);
+	Logger::Print(L"	Return Code: 0x%08X\n", lpInfo->dwExitCode);
+	Logger::Print(L"================================================================\n");
 }
 
 BOOL Process::_GetProcessInformation(HANDLE hProcess, LP_INFORMATION lpInfo)
@@ -163,7 +134,10 @@ BOOL Process::_GetProcessInformation(HANDLE hProcess, LP_INFORMATION lpInfo)
 	// Open handle to the process token
 	HANDLE hToken = nullptr;
 	if (!OpenProcessToken(hProcess, TOKEN_QUERY, &hToken)) {
-		WindowsHelper::DisplayWindowsError(GetLastError());
+		auto errorCode = GetLastError();
+		auto errorMessage = WindowsHelper::GetWindowsErrorMessage(errorCode);
+		LOG_ERROR(L"%s (0x%08x)\n", errorMessage, errorCode);
+		LocalFree(errorMessage);
 		return FALSE;
 	}
 
@@ -190,7 +164,10 @@ BOOL Process::_GetProcessInformation(HANDLE hProcess, LP_INFORMATION lpInfo)
 BOOL Process::_GetProcessExitCode(HANDLE hProcess, LP_INFORMATION lpInfo)
 {
 	if (!GetExitCodeProcess(hProcess, &lpInfo->dwExitCode)) {
-		WindowsHelper::DisplayWindowsError(GetLastError());
+		auto errorCode = GetLastError();
+		auto errorMessage = WindowsHelper::GetWindowsErrorMessage(errorCode);
+		LOG_ERROR(L"%s (0x%08x)\n", errorMessage, errorCode);
+		LocalFree(errorMessage);
 		return FALSE;
 	};
 

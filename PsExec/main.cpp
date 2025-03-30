@@ -4,6 +4,7 @@
 #include "runtime.h"
 #include "winhelp.h"
 #include "process.h"
+#include "logger.h"
 
 using namespace Runtime;
 using namespace Runtime::Functions;
@@ -20,7 +21,7 @@ Usage:\n\
 
 int main(int argc, wchar_t* argv[]) {	
 	if (argc < 2) {
-		WriteConsoleW(Runtime::hStdOut, usageMessage, WcStringLength(usageMessage), nullptr, nullptr);
+		Logger::Print(usageMessage);
 		return -1;
 	}
 
@@ -65,10 +66,11 @@ int main(int argc, wchar_t* argv[]) {
 int mainCRTStartup(PPEB peb) {
 	int exitCode{ -1 };
 
-	if (Runtime::Init(peb)) {
+	if (Runtime::Init(peb) && Logger::Init()) {
 		int argc{ 0 };
 		wchar_t** argv = Runtime::Functions::ConvertCommandLineToArgV(Runtime::Functions::GetCommandLineArgs(), &argc);
 		exitCode = main(argc, argv);
+		Logger::Destroy();
 		Runtime::Destroy();
 	}
 
