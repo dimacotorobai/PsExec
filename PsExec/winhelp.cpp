@@ -1,5 +1,6 @@
 #include "winhelp.h"
 #include "runtime.h"
+#include "logger.h"
 
 #include <TlHelp32.h>
 
@@ -7,28 +8,28 @@ using namespace Runtime;
 using namespace Runtime::Functions;
 
 
-void WindowsHelper::DisplayWindowsError(DWORD errorCode)
+LPWSTR WindowsHelper::GetWindowsErrorMessage(_In_ DWORD errorCode)
 {
+	LPWSTR errorMessage = nullptr;
+
 	// Return if no error
 	if (errorCode == ERROR_SUCCESS)
-		return;
+		return errorMessage;
 
 	// Get error message
-	LPWSTR errorMessage = nullptr;
-	size_t size = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-		NULL, errorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPWSTR)&errorMessage, 0, NULL);
-	SetMemory(errorMessage + WcStringLength(errorMessage) - 2, 0, 2);
+	size_t size = FormatMessage(
+		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		NULL,
+		errorCode,
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+		reinterpret_cast<LPWSTR>(&errorMessage),
+		0,
+		NULL
+	);
 
-	// Get full message
-	size_t finalMessageSize = 2 * (size + 64);
-	wchar_t* finalMessage = (wchar_t*)LocalAlloc(LPTR, finalMessageSize);
-	if (finalMessage != nullptr) {
-		swprintf_s(finalMessage, finalMessageSize, L"[ERROR]: WinError 0x%08x(%s)\n", errorCode, errorMessage);
-		WriteConsoleW(Runtime::hStdOut, finalMessage, WcStringLength(finalMessage), nullptr, nullptr);
-		LocalFree(finalMessage);
-	}
-
-	LocalFree(errorMessage);
+	// Remove "\r\n"
+	SetMemory(errorMessage + WcStringLength(errorMessage) - 2, 0, 4);
+	return errorMessage;
 }
 
 BOOL WindowsHelper::GetProcessNameAndDomain(HANDLE hToken, wchar_t* lpName, LPDWORD nameSize, wchar_t* lpDomain, LPDWORD domainSize)
@@ -40,7 +41,10 @@ BOOL WindowsHelper::GetProcessNameAndDomain(HANDLE hToken, wchar_t* lpName, LPDW
 	// Get token user
 	PTOKEN_USER pTokenUser = (PTOKEN_USER)LocalAlloc(LPTR, dwLengthNeeded);
 	if (pTokenUser == nullptr || !GetTokenInformation(hToken, TokenUser, pTokenUser, dwLengthNeeded, &dwLengthNeeded)) {
-		DisplayWindowsError(GetLastError());
+		auto errorCode = GetLastError();
+		auto errorMessage = GetWindowsErrorMessage(errorCode);
+		LOG_ERROR(L"%s (0x%08x)\n", errorMessage, errorCode);
+		LocalFree(errorMessage);
 		LocalFree(pTokenUser);
 		return FALSE;
 	}
@@ -48,7 +52,10 @@ BOOL WindowsHelper::GetProcessNameAndDomain(HANDLE hToken, wchar_t* lpName, LPDW
 	// Get domain and user
 	SID_NAME_USE sidType;
 	if (!LookupAccountSidW(nullptr, pTokenUser->User.Sid, lpName, nameSize, lpDomain, domainSize, &sidType)) {
-		DisplayWindowsError(GetLastError());
+		auto errorCode = GetLastError();
+		auto errorMessage = GetWindowsErrorMessage(errorCode);
+		LOG_ERROR(L"%s (0x%08x)\n", errorMessage, errorCode);
+		LocalFree(errorMessage);
 		LocalFree(pTokenUser);
 		return FALSE;
 	}
@@ -62,7 +69,10 @@ const wchar_t* WindowsHelper::GetProcessElevation(HANDLE hToken)
 	TOKEN_ELEVATION elevation;
 
 	if (!GetTokenInformation(hToken, TokenElevation, &elevation, sizeof(elevation), &dwSize)) {
-		DisplayWindowsError(GetLastError());
+		auto errorCode = GetLastError();
+		auto errorMessage = GetWindowsErrorMessage(errorCode);
+		LOG_ERROR(L"%s (0x%08x)\n", errorMessage, errorCode);
+		LocalFree(errorMessage);
 		return L"";
 	}
 
@@ -75,7 +85,10 @@ const wchar_t* WindowsHelper::GetProcessElevationType(HANDLE hToken)
 	TOKEN_ELEVATION_TYPE elevationType;
 
 	if (!GetTokenInformation(hToken, TokenElevationType, &elevationType, sizeof(elevationType), &dwSize)) {
-		DisplayWindowsError(GetLastError());
+		auto errorCode = GetLastError();
+		auto errorMessage = GetWindowsErrorMessage(errorCode);
+		LOG_ERROR(L"%s (0x%08x)\n", errorMessage, errorCode);
+		LocalFree(errorMessage);
 		return L"";
 	}
 
@@ -101,21 +114,30 @@ const wchar_t* WindowsHelper::GetProcessIntegrityLevel(HANDLE hToken)
 
 	PTOKEN_MANDATORY_LABEL pTIL = (PTOKEN_MANDATORY_LABEL)LocalAlloc(LPTR, dwLengthNeeded);
 	if (pTIL == nullptr || !GetTokenInformation(hToken, TokenIntegrityLevel, pTIL, dwLengthNeeded, &dwLengthNeeded)) {
-		DisplayWindowsError(GetLastError());
+		auto errorCode = GetLastError();
+		auto errorMessage = GetWindowsErrorMessage(errorCode);
+		LOG_ERROR(L"%s (0x%08x)\n", errorMessage, errorCode);
+		LocalFree(errorMessage);
 		LocalFree(pTIL);
 		return L"";
 	}
 
 	PUCHAR subAuthCount = GetSidSubAuthorityCount(pTIL->Label.Sid);
 	if (subAuthCount == nullptr) {
-		DisplayWindowsError(GetLastError());
+		auto errorCode = GetLastError();
+		auto errorMessage = GetWindowsErrorMessage(errorCode);
+		LOG_ERROR(L"%s (0x%08x)\n", errorMessage, errorCode);
+		LocalFree(errorMessage);
 		LocalFree(pTIL);
 		return L"";
 	}
 
 	PDWORD subAuthority = GetSidSubAuthority(pTIL->Label.Sid, static_cast<DWORD>(*subAuthCount - 1));
 	if (subAuthority == nullptr) {
-		DisplayWindowsError(GetLastError());
+		auto errorCode = GetLastError();
+		auto errorMessage = GetWindowsErrorMessage(errorCode);
+		LOG_ERROR(L"%s (0x%08x)\n", errorMessage, errorCode);
+		LocalFree(errorMessage);
 		LocalFree(pTIL);
 		return L"";
 	}
@@ -153,7 +175,10 @@ DWORD WindowsHelper::GetProcessId(LPWSTR lpProcessName)
 	DWORD dwProcId{ 0 };
 	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	if (hSnapshot == INVALID_HANDLE_VALUE) {
-		DisplayWindowsError(GetLastError());
+		auto errorCode = GetLastError();
+		auto errorMessage = GetWindowsErrorMessage(errorCode);
+		LOG_ERROR(L"%s (0x%08x)\n", errorMessage, errorCode);
+		LocalFree(errorMessage);
 		return 0;
 	}
 
@@ -168,7 +193,10 @@ DWORD WindowsHelper::GetProcessId(LPWSTR lpProcessName)
 		} while (Process32NextW(hSnapshot, &pe32));
 	}
 	else {
-		DisplayWindowsError(GetLastError());
+		auto errorCode = GetLastError();
+		auto errorMessage = GetWindowsErrorMessage(errorCode);
+		LOG_ERROR(L"%s (0x%08x)\n", errorMessage, errorCode);
+		LocalFree(errorMessage);
 		return 0;
 	}
 
